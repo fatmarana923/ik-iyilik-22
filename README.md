@@ -1,2 +1,3 @@
-# ik-iyilik-2
-insan kaynakları ve personel portalı
+{
+  "template": "bolt-vite-react-ts"
+}

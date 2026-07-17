@@ -1,0 +1,36 @@
+import { Menu, ChevronRight, HeartHandshake } from 'lucide-react';
+import type { ViewKey } from '../App';
+
+const TITLES: Record<ViewKey, { title: string; sub: string }> = {
+  dashboard: { title: 'Personel Paneli', sub: 'Duyurular, etkinlikler ve hızlı erişim' },
+  partners: { title: 'Anlaşmalı Firmalar', sub: 'Personel özel indirimleri ve avantajları' },
+  clubs: { title: 'Sosyal Kulüpler', sub: 'Kulüp etkinlikleri ve aktiviteler' },
+  classifieds: { title: 'Satış İlanları', sub: 'Personel arası ilan pazar yeri' },
+  documents: { title: 'Prosedür Dokümanları', sub: 'Resmi belgeler ve prosedürler' },
+  doctor: { title: 'Doktor Randevu', sub: 'İş yeri hekimi randevu sistemi' },
+  chat: { title: 'Sohbet Odaları', sub: 'Departman ve grup sohbetleri' },
+  directory: { title: 'Personel Arama / İK', sub: 'Güvenli İK yönetici erişimi' },
+};
+
+export function TopBar({ view, onOpenMobileNav }: { view: ViewKey; onOpenMobileNav: () => void }) {
+  const { title, sub } = TITLES[view];
+  return (
+    <header className="sticky top-0 z-20 bg-cream-50/90 backdrop-blur-md border-b border-cream-300">
+      <div className="flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-4">
+        <button onClick={onOpenMobileNav} className="lg:hidden p-2 -ml-1 rounded-lg text-navy-700 hover:bg-cream-200" aria-label="Menüyü aç">
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-xs text-navy-400 mb-0.5">
+            <HeartHandshake className="h-3.5 w-3.5 text-navy-500" />
+            <span>Genç İHH</span>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-navy-700 font-medium truncate">{title}</span>
+          </div>
+          <h1 className="font-display text-lg sm:text-xl font-bold text-navy-900 leading-tight truncate">{title}</h1>
+          <p className="text-sm text-navy-500 truncate hidden sm:block">{sub}</p>
+        </div>
+      </div>
+    </header>
+  );
+}

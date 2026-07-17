@@ -1,0 +1,30 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+      },
+      colors: {
+        navy: {
+          50: '#f0f6f4', 100: '#d9e8e3', 200: '#b3d1c8', 300: '#80b4a6',
+          400: '#4d907f', 500: '#2d6e5e', 600: '#1f5749', 700: '#194538',
+          800: '#143628', 900: '#0f2a20', 950: '#0a1d16',
+        },
+        cream: {
+          50: '#fdfcf9', 100: '#faf7f0', 200: '#f5efe1', 300: '#ece3cd',
+          400: '#ddd0b0', 500: '#cab98a', 600: '#b29e6e',
+        },
+        gold: { 400: '#d4a849', 500: '#c0933a', 600: '#a67d2e' },
+      },
+      boxShadow: {
+        soft: '0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03)',
+        card: '0 4px 24px -8px rgba(15, 42, 32, 0.10), 0 1px 3px 0 rgba(15, 23, 42, 0.04)',
+        elevated: '0 12px 40px -12px rgba(15, 42, 32, 0.18)',
+      },
+    },
+  },
+  plugins: [],
+};

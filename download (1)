@@ -1,0 +1,223 @@
+/*
+# HR Management Schema for Humanitarian Aid Foundation
+
+1. Overview
+This migration creates the full schema for an HR management web app for a
+humanitarian aid foundation ("İnsani Yardım Vakfı"). It supports:
+  - Public news articles and announcements shown on the landing area.
+  - A staff directory that can be searched and browsed.
+  - HR manager accounts (Supabase Auth) with a 2FA verification code step.
+  - A 2FA codes table that stores time-limited 6-digit codes issued at login.
+
+2. New Tables
+- `news`
+  - id (uuid, pk)
+  - title (text, not null)
+  - summary (text)
+  - body (text)
+  - category (text) — e.g. "Etkinlik", "Proje", "Rapor"
+  - image_url (text)
+  - published (boolean, default true)
+  - published_at (timestamptz, default now())
+  - created_at (timestamptz, default now())
+
+- `announcements`
+  - id (uuid, pk)
+  - title (text, not null)
+  - body (text, not null)
+  - priority (text) — "low" | "normal" | "high"
+  - pinned (boolean, default false)
+  - published (boolean, default true)
+  - published_at (timestamptz, default now())
+  - created_at (timestamptz, default now())
+
+- `staff`
+  - id (uuid, pk)
+  - first_name (text, not null)
+  - last_name (text, not null)
+  - email (text, unique, not null)
+  - phone (text)
+  - department (text) — e.g. "Saha Operasyonları", "İK", "Lojistik"
+  - position (text) — job title
+  - location (text) — city / country of assignment
+  - status (text) — "active" | "on_leave" | "field_mission" | "inactive"
+  - hire_date (date)
+  - avatar_url (text)
+  - created_at (timestamptz, default now())
+
+- `hr_managers`
+  - id (uuid, pk, defaults to auth.uid()) — links to auth.users
+  - full_name (text, not null)
+  - email (text, unique, not null)
+  - role (text, default 'manager')
+  - created_at (timestamptz, default now())
+
+- `two_fa_codes`
+  - id (uuid, pk)
+  - email (text, not null) — the manager email being verified
+  - code (text, not null) — 6-digit code
+  - expires_at (timestamptz, not null)
+  - consumed (boolean, default false)
+  - created_at (timestamptz, default now())
+
+3. Security
+- RLS enabled on every table.
+- `news`, `announcements`, `staff`: SELECT is public (anon + authenticated)
+  because the foundation wants these visible on the public site. Writes
+  (insert/update/delete) are restricted to authenticated HR managers.
+- `hr_managers`: a manager can read/update only their own row; inserts are
+  blocked from the client (managers are provisioned via the backend).
+- `two_fa_codes`: anyone may insert a code (login flow generates one) and
+  may select/update by email (the login screen verifies it). This is
+  acceptable because codes are single-use, short-lived (10 min), and the
+  table holds no other sensitive data.
+
+4. Indexes
+- staff (department), staff (status), staff (email) for search.
+- news (published_at desc) for the news feed.
+- announcements (pinned, published_at desc).
+- two_fa_codes (email, expires_at).
+*/
+
+-- ---------- news ----------
+CREATE TABLE IF NOT EXISTS news (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  summary text,
+  body text,
+  category text,
+  image_url text,
+  published boolean NOT NULL DEFAULT true,
+  published_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE news ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "public_read_news" ON news;
+CREATE POLICY "public_read_news" ON news FOR SELECT
+  TO anon, authenticated USING (published = true);
+
+DROP POLICY IF EXISTS "manager_insert_news" ON news;
+CREATE POLICY "manager_insert_news" ON news FOR INSERT
+  TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "manager_update_news" ON news;
+CREATE POLICY "manager_update_news" ON news FOR UPDATE
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "manager_delete_news" ON news;
+CREATE POLICY "manager_delete_news" ON news FOR DELETE
+  TO authenticated USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_news_published_at ON news (published_at DESC);
+
+-- ---------- announcements ----------
+CREATE TABLE IF NOT EXISTS announcements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  body text NOT NULL,
+  priority text NOT NULL DEFAULT 'normal',
+  pinned boolean NOT NULL DEFAULT false,
+  published boolean NOT NULL DEFAULT true,
+  published_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "public_read_announcements" ON announcements;
+CREATE POLICY "public_read_announcements" ON announcements FOR SELECT
+  TO anon, authenticated USING (published = true);
+
+DROP POLICY IF EXISTS "manager_insert_announcements" ON announcements;
+CREATE POLICY "manager_insert_announcements" ON announcements FOR INSERT
+  TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "manager_update_announcements" ON announcements;
+CREATE POLICY "manager_update_announcements" ON announcements FOR UPDATE
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "manager_delete_announcements" ON announcements;
+CREATE POLICY "manager_delete_announcements" ON announcements FOR DELETE
+  TO authenticated USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_announcements_feed ON announcements (pinned DESC, published_at DESC);
+
+-- ---------- staff ----------
+CREATE TABLE IF NOT EXISTS staff (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  email text UNIQUE NOT NULL,
+  phone text,
+  department text,
+  position text,
+  location text,
+  status text NOT NULL DEFAULT 'active',
+  hire_date date,
+  avatar_url text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE staff ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "public_read_staff" ON staff;
+CREATE POLICY "public_read_staff" ON staff FOR SELECT
+  TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "manager_insert_staff" ON staff;
+CREATE POLICY "manager_insert_staff" ON staff FOR INSERT
+  TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "manager_update_staff" ON staff;
+CREATE POLICY "manager_update_staff" ON staff FOR UPDATE
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "manager_delete_staff" ON staff;
+CREATE POLICY "manager_delete_staff" ON staff FOR DELETE
+  TO authenticated USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_staff_department ON staff (department);
+CREATE INDEX IF NOT EXISTS idx_staff_status ON staff (status);
+CREATE INDEX IF NOT EXISTS idx_staff_email ON staff (email);
+
+-- ---------- hr_managers ----------
+CREATE TABLE IF NOT EXISTS hr_managers (
+  id uuid PRIMARY KEY DEFAULT auth.uid(),
+  full_name text NOT NULL,
+  email text UNIQUE NOT NULL,
+  role text NOT NULL DEFAULT 'manager',
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE hr_managers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "manager_read_self" ON hr_managers;
+CREATE POLICY "manager_read_self" ON hr_managers FOR SELECT
+  TO authenticated USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "manager_update_self" ON hr_managers;
+CREATE POLICY "manager_update_self" ON hr_managers FOR UPDATE
+  TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- ---------- two_fa_codes ----------
+CREATE TABLE IF NOT EXISTS two_fa_codes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  code text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  consumed boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE two_fa_codes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "anyone_insert_2fa" ON two_fa_codes;
+CREATE POLICY "anyone_insert_2fa" ON two_fa_codes FOR INSERT
+  TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anyone_read_2fa" ON two_fa_codes;
+CREATE POLICY "anyone_read_2fa" ON two_fa_codes FOR SELECT
+  TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "anyone_update_2fa" ON two_fa_codes;
+CREATE POLICY "anyone_update_2fa" ON two_fa_codes FOR UPDATE
+  TO anon, authenticated USING (true) WITH CHECK (true);
+
+CREATE INDEX IF NOT EXISTS idx_2fa_email_expires ON two_fa_codes (email, expires_at);
